@@ -34,12 +34,18 @@
  * ```
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { join, basename, dirname } from 'node:path';
+import { join, basename, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { load as parseYaml } from 'js-yaml';
 import { XMLParser } from 'fast-xml-parser';
 import { parse as parseCsv } from 'csv-parse/sync';
 import { GitSourceResolver } from '../utils/git-source-resolver.js';
+import {
+  isBmadMethodSource,
+  scanBmadMethodSource,
+  type BmadSourceAdapterResult,
+} from './bmad-source-adapter.js';
 import type { Workflow } from '../types/index.js';
 
 /**
@@ -68,10 +74,23 @@ const xmlParser = new XMLParser({
   ignorePiTags: true,
 });
 
+/**
+ * Resolve path to bundled BMAD content shipped with the package.
+ * Works both when running from source (tsx) and from compiled build/.
+ */
+function resolveBundlePath(): string {
+  const modulePath = fileURLToPath(import.meta.url);
+  const moduleDir = dirname(modulePath);
+  // From build/core/resource-loader.js or src/core/resource-loader.ts:
+  // Go up 2 levels to reach project root, then into bmad-bundle/
+  return resolve(moduleDir, '..', '..', 'bmad-bundle');
+}
+
 export interface ResourcePaths {
   projectRoot: string;
   userBmad: string;
   gitRemotes?: string[];
+  packageBmad: string;
 }
 
 export interface Resource {
@@ -142,6 +161,7 @@ export class ResourceLoaderGit {
       projectRoot: projectRoot || process.cwd(),
       userBmad: join(homedir(), '.bmad'),
       gitRemotes: gitRemotes || [],
+      packageBmad: resolveBundlePath(),
     };
 
     // Initialize Git resolver if we have remote URLs
@@ -247,7 +267,7 @@ export class ResourceLoaderGit {
    * This method recursively walks a directory structure, collecting all files while:
    * - Skipping node_modules, .git, cache directories, and hidden files
    * - Deduplicating by relative path (first source wins)
-   * - Handling read errors gracefully
+   * - Handling read errors
    */
   private walkDir(
     dir: string,
@@ -290,8 +310,10 @@ export class ResourceLoaderGit {
           }
         }
       }
-    } catch {
-      // Ignore errors reading directories
+    } catch (err) {
+      throw new Error(
+        `Failed to read directory ${dir}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -386,6 +408,30 @@ export class ResourceLoaderGit {
       path: join(this.paths.userBmad, 'agents', `${name}.md`),
       source: 'user',
     });
+
+    // Package defaults - bundled content (lowest priority)
+    if (existsSync(this.paths.packageBmad)) {
+      const pkgBmad = this.paths.packageBmad;
+      // Check flat structure
+      candidates.push({
+        path: join(pkgBmad, 'agents', `${name}.md`),
+        source: 'project',
+      });
+      // Check modular structure
+      try {
+        const modules = readdirSync(pkgBmad, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name);
+        for (const mod of modules) {
+          candidates.push({
+            path: join(pkgBmad, mod, 'agents', `${name}.md`),
+            source: 'project',
+          });
+        }
+      } catch {
+        // Ignore module scanning errors
+      }
+    }
 
     // Git remotes - use smart path detection
     for (const localPath of this.resolvedGitPaths.values()) {
@@ -523,6 +569,30 @@ export class ResourceLoaderGit {
       path: join(this.paths.userBmad, 'workflows', name, 'workflow.yaml'),
       source: 'user',
     });
+
+    // Package defaults - bundled content (lowest priority)
+    if (existsSync(this.paths.packageBmad)) {
+      const pkgBmad = this.paths.packageBmad;
+      // Flat structure
+      candidates.push({
+        path: join(pkgBmad, 'workflows', name, 'workflow.yaml'),
+        source: 'project',
+      });
+      // Modular structure
+      try {
+        const modules = readdirSync(pkgBmad, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name);
+        for (const mod of modules) {
+          candidates.push({
+            path: join(pkgBmad, mod, 'workflows', name, 'workflow.yaml'),
+            source: 'project',
+          });
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
 
     // Git remotes - flat and modular
     for (const localPath of this.resolvedGitPaths.values()) {
@@ -695,6 +765,34 @@ export class ResourceLoaderGit {
         .forEach((f) => agents.add(basename(f, '.md')));
     }
 
+    // Scan package defaults - bundled content (lowest priority)
+    if (existsSync(this.paths.packageBmad)) {
+      const pkgBmad = this.paths.packageBmad;
+      // Flat structure
+      const pkgFlatAgents = join(pkgBmad, 'agents');
+      if (existsSync(pkgFlatAgents)) {
+        readdirSync(pkgFlatAgents)
+          .filter(isAgentFile)
+          .forEach((f) => agents.add(basename(f, '.md')));
+      }
+      // Modular structure
+      try {
+        const modules = readdirSync(pkgBmad, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name);
+        for (const mod of modules) {
+          const modAgents = join(pkgBmad, mod, 'agents');
+          if (existsSync(modAgents)) {
+            readdirSync(modAgents)
+              .filter(isAgentFile)
+              .forEach((f) => agents.add(basename(f, '.md')));
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+
     // Scan Git remotes - use smart path detection
     for (const localPath of this.resolvedGitPaths.values()) {
       const pathInfo = this.detectPathType(localPath);
@@ -836,6 +934,40 @@ export class ResourceLoaderGit {
       });
     }
 
+    // Scan package defaults - bundled content (lowest priority)
+    if (existsSync(this.paths.packageBmad)) {
+      const pkgBmad = this.paths.packageBmad;
+      // Flat structure
+      const pkgFlatWorkflows = join(pkgBmad, 'workflows');
+      if (existsSync(pkgFlatWorkflows)) {
+        readdirSync(pkgFlatWorkflows).forEach((name) => {
+          const wfPath = join(pkgFlatWorkflows, name, 'workflow.yaml');
+          if (existsSync(wfPath)) {
+            workflows.add(name);
+          }
+        });
+      }
+      // Modular structure
+      try {
+        const modules = readdirSync(pkgBmad, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name);
+        for (const mod of modules) {
+          const modWorkflows = join(pkgBmad, mod, 'workflows');
+          if (existsSync(modWorkflows)) {
+            readdirSync(modWorkflows).forEach((name) => {
+              const wfPath = join(modWorkflows, name, 'workflow.yaml');
+              if (existsSync(wfPath)) {
+                workflows.add(name);
+              }
+            });
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+
     // Scan Git remotes - flat and modular
     for (const localPath of this.resolvedGitPaths.values()) {
       const pathInfo = this.detectPathType(localPath);
@@ -974,8 +1106,10 @@ export class ResourceLoaderGit {
             }
           }
           /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
-        } catch {
-          // Failed to parse YAML frontmatter, skip it
+        } catch (err) {
+          throw new Error(
+            `Failed to parse YAML frontmatter for agent "${name}": ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
       }
 
@@ -993,9 +1127,10 @@ export class ResourceLoaderGit {
       let parsed: any;
       try {
         parsed = xmlParser.parse(xmlContent);
-      } catch {
-        // If XML parsing fails, return basic metadata
-        return metadata;
+      } catch (err) {
+        throw new Error(
+          `Failed to parse XML for agent "${name}": ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
 
       const agent = parsed.agent;
@@ -1168,8 +1303,10 @@ export class ResourceLoaderGit {
       /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 
       return metadata;
-    } catch {
-      return null;
+    } catch (err) {
+      throw new Error(
+        `Failed to get metadata for agent "${name}": ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -1257,16 +1394,10 @@ export class ResourceLoaderGit {
       }));
 
       return workflows;
-    } catch {
-      // If manifest doesn't exist, fall back to name-only list
-      const workflowNames = await this.listWorkflows();
-      return workflowNames.map((name) => ({
-        name,
-        description: '',
-        module: 'unknown',
-        path: '',
-        standalone: true,
-      }));
+    } catch (err) {
+      throw new Error(
+        `Failed to load workflow manifest: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -1324,6 +1455,12 @@ export class ResourceLoaderGit {
       );
     }
 
+    // Walk package defaults (lowest priority)
+    const pkgBmad = this.paths.packageBmad;
+    if (existsSync(pkgBmad)) {
+      this.walkDir(pkgBmad, pkgBmad, 'project', allFiles, seenPaths);
+    }
+
     // Walk git remotes
     for (const localPath of this.resolvedGitPaths.values()) {
       const pathInfo = this.detectPathType(localPath);
@@ -1371,6 +1508,22 @@ export class ResourceLoaderGit {
     // User
     candidates.push(join(this.paths.userBmad, relativePath));
 
+    // Package defaults (lowest priority)
+    if (existsSync(this.paths.packageBmad)) {
+      const pkgBmad = this.paths.packageBmad;
+      candidates.push(join(pkgBmad, relativePath));
+      try {
+        const modules = readdirSync(pkgBmad, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name);
+        for (const mod of modules) {
+          candidates.push(join(pkgBmad, mod, relativePath));
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+
     // Git remotes
     for (const localPath of this.resolvedGitPaths.values()) {
       const pathInfo = this.detectPathType(localPath);
@@ -1412,20 +1565,49 @@ export class ResourceLoaderGit {
    * Get resolved Git remote paths for debugging
    *
    * @returns Map of Git URLs to their resolved local cache paths
-   *
-   * @remarks
-   * Returns the mapping of Git remote URLs to their local clone/cache directories.
-   * Git repositories are cloned lazily on first access and cached for performance.
-   *
-   * @example
-   * ```typescript
-   * const gitPaths = loader.getResolvedGitPaths();
-   * for (const [url, path] of gitPaths) {
-   *   console.log(`${url} -> ${path}`);
-   * }
-   * ```
    */
   getResolvedGitPaths(): Map<string, string> {
     return new Map(this.resolvedGitPaths);
+  }
+
+  /**
+   * Scan all sources (git remotes + user + package) for bmad-method source format
+   * and extract agents and workflows.
+   */
+  async scanBmadMethodContent(): Promise<BmadSourceAdapterResult> {
+    const result: BmadSourceAdapterResult = { agents: [], workflows: [] };
+
+    const dirsToCheck: string[] = [];
+
+    // Check git remotes
+    for (const localPath of this.resolvedGitPaths.values()) {
+      dirsToCheck.push(localPath);
+    }
+
+    // Check user directory
+    dirsToCheck.push(this.paths.userBmad);
+
+    // Check package bundle
+    if (existsSync(this.paths.packageBmad)) {
+      dirsToCheck.push(this.paths.packageBmad);
+    }
+
+    for (const dir of dirsToCheck) {
+      if (isBmadMethodSource(dir)) {
+        const partial = scanBmadMethodSource(dir);
+        for (const agent of partial.agents) {
+          if (!result.agents.find((a) => a.name === agent.name && a.module === agent.module)) {
+            result.agents.push(agent);
+          }
+        }
+        for (const wf of partial.workflows) {
+          if (!result.workflows.find((w) => w.name === wf.name && w.module === wf.module)) {
+            result.workflows.push(wf);
+          }
+        }
+      }
+    }
+
+    return result;
   }
 }

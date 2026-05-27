@@ -1,0 +1,4 @@
+# Workflow init
+name: workflow-init
+description: 'Initialize a new sequenced workflow path for a project.'
+standalone: true

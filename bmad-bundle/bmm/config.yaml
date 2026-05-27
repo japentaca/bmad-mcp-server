@@ -1,0 +1,7 @@
+# BMM Module Configuration
+user_name: User
+communication_language: English
+document_output_language: English
+output_folder: '{project-root}/docs'
+project_name: my-project
+user_skill_level: intermediate

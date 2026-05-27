@@ -11,7 +11,8 @@
     "build": "tsc && chmod +x build/index.js && chmod +x build/cli.js",
     "clean": "rm -rf build/ coverage/ test-results/ .bmad/cache/",
     "clean:all": "npm run clean && rm -rf node_modules/ package-lock.json",
-    "prepare": "npm run build || true",
+    "prebuild": "node scripts/bundle-bmad.cjs",
+    "prepare": "node scripts/bundle-bmad.cjs && npm run build || true",
     "start": "node build/index.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run tests/unit tests/integration",
@@ -39,13 +40,20 @@
     "cli:list-workflows": "node scripts/show-list-workflows.mjs"
   },
   "files": [
-    "build/"
+    "build/",
+    "bmad-bundle/"
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "^8.20.0",
+    "better-sqlite3": "^12.10.0",
+    "bmad-method": "^6.8.0",
     "csv-parse": "^6.1.0",
     "fast-xml-parser": "^5.3.1",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "knex": "^3.2.10",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
     "@clack/prompts": "^0.11.0",
@@ -79,16 +87,16 @@
     "agile",
     "ai-agents"
   ],
-  "author": "",
+  "author": "japentaca",
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mkellerman/bmad-mcp-server"
+    "url": "https://github.com/japentaca/bmad-mcp-server"
   },
   "bugs": {
-    "url": "https://github.com/mkellerman/bmad-mcp-server/issues"
+    "url": "https://github.com/japentaca/bmad-mcp-server/issues"
   },
-  "homepage": "https://github.com/mkellerman/bmad-mcp-server#readme",
+  "homepage": "https://github.com/japentaca/bmad-mcp-server#readme",
   "lint-staged": {
     "*.{ts,js,mjs}": [
       "eslint --fix",

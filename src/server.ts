@@ -24,6 +24,7 @@ import {
   handleBMADTool,
   type BMADToolParams,
 } from './tools/index.js';
+import { initializeStorage, getDbStatus } from './storage/index.js';
 
 export class BMADServerLiteMultiToolGit {
   private server: Server;
@@ -72,6 +73,12 @@ export class BMADServerLiteMultiToolGit {
         return {
           resourceTemplates: [
             {
+              uriTemplate: 'bmad://_db/status',
+              name: 'Database Connection Status',
+              description: 'DB connection health: driver, connected status, and error details',
+              mimeType: 'application/json',
+            },
+            {
               uriTemplate: 'bmad://{module}/agents/{agent}.md',
               name: 'Agent Source',
               description: 'Agent markdown source file',
@@ -100,6 +107,12 @@ export class BMADServerLiteMultiToolGit {
               uriTemplate: 'bmad://{module}/knowledge/{category}/{file}',
               name: 'Knowledge Base',
               description: 'Knowledge base articles and references',
+              mimeType: 'text/markdown',
+            },
+            {
+              uriTemplate: 'bmad://_cfg/help.md',
+              name: 'Setup & Configuration Help',
+              description: 'How to configure mcp.json, database persistence, custom agents, and project overrides',
               mimeType: 'text/markdown',
             },
             {
@@ -149,6 +162,21 @@ export class BMADServerLiteMultiToolGit {
 
         const relativePath = pathMatch[1];
 
+        // DB status virtual resource
+        if (relativePath === '_db/status') {
+          const status = getDbStatus();
+          const content = JSON.stringify(status, null, 2);
+          return {
+            contents: [
+              {
+                uri: 'bmad://_db/status',
+                mimeType: 'application/json',
+                text: content,
+              },
+            ],
+          };
+        }
+
         // Handle virtual manifest generation for _cfg/*.csv files
         if (relativePath === '_cfg/agent-manifest.csv') {
           const content = this.engine.generateAgentManifest();
@@ -170,6 +198,20 @@ export class BMADServerLiteMultiToolGit {
               {
                 uri,
                 mimeType: 'text/csv',
+                text: content,
+              },
+            ],
+          };
+        }
+
+        // Virtual help document
+        if (relativePath === '_cfg/help.md') {
+          const content = getHelpContent();
+          return {
+            contents: [
+              {
+                uri,
+                mimeType: 'text/markdown',
                 text: content,
               },
             ],
@@ -400,17 +442,176 @@ export class BMADServerLiteMultiToolGit {
 
     await this.initialize();
 
+    // Initialize storage if BMAD_DB_URL is configured
+    try {
+      await initializeStorage();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[storage] ${msg}`);
+      console.error('[storage] DB operations will be unavailable. Fix the connection and restart.');
+    }
+
     const gitPaths = this.engine.getLoader().getResolvedGitPaths();
     const agentCount = this.engine.getAgentMetadata().length;
     const workflowCount = this.engine.getWorkflowMetadata().length;
     const resourceCount = this.engine.getCachedResources().length;
+    const dbStatus = getDbStatus();
 
     console.error('BMAD MCP Server started');
     console.error(
       `Loaded ${agentCount} agents, ${workflowCount} workflows, ${resourceCount} resources`,
     );
+    if (dbStatus.connected) {
+      console.error(`DB: ${dbStatus.driver} (connected)`);
+    }
     if (gitPaths.size > 0) {
       console.error(`Git remotes resolved: ${gitPaths.size}`);
     }
   }
+}
+
+function getHelpContent(): string {
+  return `# BMAD MCP Server — Setup & Configuration
+
+## Client Configuration (mcp.json)
+
+Minimal setup (read-only mode — agents, workflows, resources):
+\`\`\`json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "npx",
+      "args": ["-y", "bmad-mcp-server"]
+    }
+  }
+}
+\`\`\`
+
+## Database Persistence
+
+Enable document storage, full-text search, and workflow status tracking via \`BMAD_DB_URL\`:
+
+SQLite (file-based, no server needed):
+\`\`\`json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "npx",
+      "args": ["-y", "bmad-mcp-server"],
+      "env": {
+        "BMAD_DB_URL": "sqlite:///home/user/.bmad/bmad.db"
+      }
+    }
+  }
+}
+\`\`\`
+
+PostgreSQL:
+\`\`\`json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "npx",
+      "args": ["-y", "bmad-mcp-server"],
+      "env": {
+        "BMAD_DB_URL": "postgresql://user:password@localhost:5432/bmad"
+      }
+    }
+  }
+}
+\`\`\`
+
+**Behavior:**
+- Without \`BMAD_DB_URL\` → server runs in read-only mode. DB operations return an error explaining the variable is not set.
+- With \`BMAD_DB_URL\` set but connection fails → server starts, logs the error, DB operations fail with a descriptive message.
+- Check status anytime: read \`bmad://_db/status\`.
+
+## Project Root (BMAD_ROOT)
+
+Point the server at a specific project to discover its local \`bmad/\` directory (agents, workflows, config overrides):
+\`\`\`json
+{ "env": { "BMAD_ROOT": "/home/user/projects/my-app" } }
+\`\`\`
+
+The loader scans for:
+- \`{BMAD_ROOT}/bmad/agents/*.md\` — project agents
+- \`{BMAD_ROOT}/bmad/{module}/agents/*.md\` — modular agents
+- \`{BMAD_ROOT}/bmad/core/config.yaml\` — project configuration
+
+## Git Remotes
+
+Load additional agents and workflows from external repositories:
+\`\`\`json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "npx",
+      "args": [
+        "-y", "bmad-mcp-server",
+        "git+https://github.com/org/custom-bmad.git#main"
+      ]
+    }
+  }
+}
+\`\`\`
+
+Supports branches (\`#main\`), tags (\`#v2.0.0\`), and subpaths (\`#main:/bmad/core\`).
+
+## Local Development
+
+Run from source with optional DB:
+\`\`\`json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "node",
+      "args": ["/path/to/bmad-mcp-server/build/index.js"],
+      "env": {
+        "BMAD_DB_URL": "sqlite:///home/user/.bmad/bmad.db"
+      }
+    }
+  }
+}
+\`\`\`
+
+## BMAD Tool Operations
+
+| Operation | Purpose | Example |
+|-----------|---------|---------|
+| \`list\` | Discover agents, workflows, modules | \`{ operation: "list", query: "agents" }\` |
+| \`read\` | Inspect agent or workflow details | \`{ operation: "read", agent: "analyst" }\` |
+| \`execute\` | Run agent or workflow | \`{ operation: "execute", agent: "pm", message: "..." }\` |
+| \`db\` | Save, read, search, status persistence | \`{ operation: "db", db: { action: "save", ... } }\` |
+
+## DB Operations
+
+\`\`\`
+Save:    { operation: "db", db: { action: "save", path: "prd/spec.md", content: "..." } }
+Read:    { operation: "db", db: { action: "read", path: "prd/spec.md" } }
+List:    { operation: "db", db: { action: "list", projectName: "my-app" } }
+Search:  { operation: "db", db: { action: "search", query: "payment", language: "spanish" } }
+Status:  { operation: "db", db: { action: "status-save", status: {...} }, workflow: "prd" }
+\`\`\`
+
+## Custom Agents & Workflows
+
+Place files in any of these locations (searched in priority order):
+1. \`{BMAD_ROOT}/bmad/\` — project-local (highest priority)
+2. \`~/.bmad/\` — user-global
+3. Git remotes (cloned to \`~/.bmad/cache/git/\`)
+4. Built-in bundle (lowest priority)
+
+Agent format: \`{module}/agents/{name}.md\` with YAML frontmatter + XML agent definition.
+Workflow format: \`{module}/workflows/{name}/workflow.yaml\`.
+
+## Resource Discovery
+
+Read any BMAD file via \`bmad://\` URIs:
+- Agents: \`bmad://{module}/agents/{name}.md\`
+- Workflows: \`bmad://{module}/workflows/{name}/workflow.yaml\`
+- Config: \`bmad://core/config.yaml\`
+- DB status: \`bmad://_db/status\`
+- Agent manifest: \`bmad://_cfg/agent-manifest.csv\`
+- This help: \`bmad://_cfg/help.md\`
+`;
 }

@@ -54,13 +54,20 @@ import {
   validateExecuteParams,
   getExecuteExamples,
 } from './operations/execute.js';
+import {
+  type DBParams,
+  executeDBOperation,
+  validateDBParams,
+  getDBExamples,
+} from './operations/db.js';
+import { getStorage } from '../storage/index.js';
 
 /**
  * Parameters for the unified BMAD tool
  */
 export interface BMADToolParams {
   /** Operation to perform */
-  operation: 'list' | 'search' | 'read' | 'execute';
+  operation: 'list' | 'search' | 'read' | 'execute' | 'db';
 
   // List operation params
   /** Query for list operation (agents, workflows, modules, resources) */
@@ -83,6 +90,31 @@ export interface BMADToolParams {
   // Execute operation params
   /** User message/context (for execute operation) */
   message?: string;
+
+  // DB operation params (nested sub-object)
+  /** DB operation parameters */
+  db?: {
+    /** DB action: save, read, list, search, status-save, status-read, status-list */
+    action?: string;
+    /** DB document path */
+    path?: string;
+    /** DB document content (for save) */
+    content?: string;
+    /** DB content type (default: markdown) */
+    contentType?: string;
+    /** DB search query */
+    query?: string;
+    /** DB search language (default: spanish) */
+    language?: string;
+    /** DB limit for list/search */
+    limit?: number;
+    /** DB offset for list/search */
+    offset?: number;
+    /** DB workflow status payload */
+    status?: Record<string, unknown>;
+    /** DB project name override */
+    projectName?: string;
+  };
 
   // Common params
   /** Optional module filter (core, bmm, cis) */
@@ -118,20 +150,22 @@ export function createBMADTool(
 
   // Build operation enum based on config
   const operations = enableSearch
-    ? ['list', 'search', 'read', 'execute']
-    : ['list', 'read', 'execute'];
+    ? ['list', 'search', 'read', 'execute', 'db']
+    : ['list', 'read', 'execute', 'db'];
 
   // Build operation description
-  const operationDesc = enableSearch
+  const operationDesc = (enableSearch
     ? 'Operation type:\n' +
       '- list: Get available agents/workflows/modules\n' +
       '- search: Find agents/workflows by fuzzy search\n' +
       '- read: Inspect agent or workflow details (read-only)\n' +
-      '- execute: Run agent or workflow with user context (action)'
+      '- execute: Run agent or workflow with user context (action)\n' +
+      '- db: Database persistence - save/read/list/search documents and workflow status'
     : 'Operation type:\n' +
       '- list: Get available agents/workflows/modules\n' +
       '- read: Inspect agent or workflow details (read-only)\n' +
-      '- execute: Run agent or workflow with user context (action)';
+      '- execute: Run agent or workflow with user context (action)\n' +
+      '- db: Database persistence - save/read/list/search documents and workflow status');
 
   return {
     name: 'bmad',
@@ -308,6 +342,10 @@ function buildToolDescription(
   parts.push(
     '  { operation: "execute", agent: "debug", module: "bmm", message: "Fix this bug" }',
   );
+  parts.push('');
+  parts.push(
+    'Use `{ operation: "read", uri: "bmad://_cfg/help.md" }` for setup instructions, database configuration, and customization help.',
+  );
 
   return parts.join('\n');
 }
@@ -378,6 +416,8 @@ export async function handleBMADTool(
       return await handleRead(params, engine);
     case 'execute':
       return await handleExecute(params, engine);
+    case 'db':
+      return await handleDB(params);
     default:
       return {
         content: [
@@ -424,12 +464,12 @@ async function handleList(
   // Execute operation
   const result = await executeListOperation(engine, listParams);
 
-  // Return JSON data for discovery operations
+  // Return result text, with fallback if data is undefined
   return {
     content: [
       {
         type: 'text',
-        text: JSON.stringify(result.data, null, 2),
+        text: result.data ? JSON.stringify(result.data, null, 2) : result.text || '',
       },
     ],
   };
@@ -465,12 +505,12 @@ async function handleSearch(
   // Execute operation
   const result = await executeSearchOperation(engine, searchParams);
 
-  // Return JSON data for discovery operations
+  // Return result text, with fallback if data is undefined
   return {
     content: [
       {
         type: 'text',
-        text: JSON.stringify(result.data, null, 2),
+        text: result.data ? JSON.stringify(result.data, null, 2) : result.text || '',
       },
     ],
   };
@@ -508,12 +548,12 @@ async function handleRead(
   // Execute operation
   const result = await executeReadOperation(engine, readParams);
 
-  // Return JSON data for discovery operations
+  // Return result text, with fallback if data is undefined
   return {
     content: [
       {
         type: 'text',
-        text: JSON.stringify(result.data, null, 2),
+        text: result.data ? JSON.stringify(result.data, null, 2) : result.text || '',
       },
     ],
   };
@@ -573,6 +613,55 @@ async function handleExecute(
       {
         type: 'text',
         text: result.text,
+      },
+    ],
+  };
+}
+
+/**
+ * Handles DB operation
+ */
+async function handleDB(
+  params: BMADToolParams,
+): Promise<{ content: TextContent[] }> {
+  const db = params.db || {};
+  const dbParams: DBParams = {
+    action: db.action as DBParams['action'],
+    projectName: db.projectName || params.module,
+    path: db.path,
+    content: db.content,
+    contentType: db.contentType,
+    workflow: params.workflow,
+    agent: params.agent,
+    query: db.query,
+    language: db.language,
+    limit: db.limit,
+    offset: db.offset,
+    status: db.status,
+  };
+
+  const validationError = validateDBParams(dbParams);
+  if (validationError) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `❌ Validation Error: ${validationError}\n\nExamples:\n${getDBExamples().join('\n')}`,
+        },
+      ],
+    };
+  }
+
+  const storage = getStorage();
+  const result = await executeDBOperation(storage, dbParams);
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: result.success
+          ? result.text || JSON.stringify(result.data, null, 2)
+          : `❌ ${result.error}\n\n${result.text || ''}`,
       },
     ],
   };

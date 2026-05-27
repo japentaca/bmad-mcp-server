@@ -128,11 +128,30 @@ export class BMADEngine {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    // Load all agents with metadata
+    // Load all agents with metadata from filesystem sources
     this.agentMetadata = await this.loader.listAgentsWithMetadata();
 
-    // Load all workflows with metadata
+    // Load all workflows with metadata from filesystem sources
     this.workflows = await this.loader.listWorkflowsWithMetadata();
+
+    // Scan bmad-method source format for additional agents and workflows
+    const bmadSource = await this.loader.scanBmadMethodContent();
+
+    for (const agent of bmadSource.agents) {
+      if (!this.agentMetadata.find(
+        (a) => a.name === agent.name && a.module === agent.module,
+      )) {
+        this.agentMetadata.push(agent);
+      }
+    }
+
+    for (const wf of bmadSource.workflows) {
+      if (!this.workflows.find(
+        (w) => w.name === wf.name && w.module === wf.module,
+      )) {
+        this.workflows.push(wf);
+      }
+    }
 
     // Pre-build resource list
     this.cachedResources = [];
@@ -328,6 +347,7 @@ export class BMADEngine {
 
       // Load full agent content
       const resource = await this.loader.loadAgent(agentName);
+      const content = resource.content;
 
       const agentDef: AgentDefinition = {
         name: agent.name,
@@ -338,7 +358,7 @@ export class BMADEngine {
         persona: agent.persona,
         capabilities: agent.capabilities,
         workflows: agent.workflows || [],
-        content: resource.content,
+        content,
       };
 
       const text = this.formatAgentDefinition(agentDef);
@@ -939,5 +959,69 @@ export class BMADEngine {
 
     // Wrap in quotes for consistency with BMAD manifests (all fields quoted)
     return `"${value}"`;
+  }
+
+  /**
+   * Generate agent content from metadata when filesystem file is unavailable.
+   * Used for agents discovered via bmad-method source adapter.
+   */
+  private generateAgentContent(agent: AgentMetadata): string {
+    const lines: string[] = [];
+
+    lines.push('---');
+    lines.push(`name: '${agent.name}'`);
+    lines.push(`description: '${agent.title}'`);
+    lines.push('---');
+    lines.push('');
+    lines.push('You must fully embody this agent\'s persona and follow all activation instructions.');
+    lines.push('');
+    lines.push('```xml');
+    lines.push(
+      `<agent id="bmad/${agent.module || 'core'}/agents/${agent.name}.md" name="${agent.displayName}" title="${agent.title}" icon="${agent.icon || '🤖'}">`,
+    );
+    lines.push('<activation critical="MANDATORY">');
+    lines.push('  <step n="1">Load persona from this current agent file</step>');
+    lines.push('  <step n="2">Load config and store session variables</step>');
+    lines.push('  <step n="3">Show greeting and display numbered list of ALL menu items</step>');
+    lines.push('  <step n="4">STOP and WAIT for user input</step>');
+    lines.push('');
+    lines.push('  <menu-handlers>');
+    lines.push('  <handlers>');
+    lines.push('    <handler type="workflow">');
+    lines.push('      When menu item has: workflow="path/to/workflow.yaml"');
+    lines.push('      1. Load workflow.yaml and execute its instructions');
+    lines.push('      2. Save outputs after completing EACH workflow step');
+    lines.push('    </handler>');
+    lines.push('  </handlers>');
+    lines.push('  </menu-handlers>');
+    lines.push('');
+    lines.push('  <rules>');
+    lines.push('    - ALWAYS communicate in {communication_language}');
+    lines.push('    - Stay in character until exit selected');
+    lines.push('  </rules>');
+    lines.push('</activation>');
+    lines.push('  <persona>');
+    lines.push(`    <role>${agent.description || agent.title}</role>`);
+    lines.push(`    <identity>${agent.persona || ''}</identity>`);
+    if (agent.communicationStyle) {
+      lines.push(`    <communication_style>${agent.communicationStyle}</communication_style>`);
+    }
+    if (agent.principles) {
+      lines.push(`    <principles>${agent.principles}</principles>`);
+    }
+    lines.push('  </persona>');
+    lines.push('  <menu>');
+    lines.push('    <item cmd="*help">Show numbered menu</item>');
+    if (agent.workflows) {
+      for (const wf of agent.workflows) {
+        lines.push(`    <item cmd="*${wf}" workflow="{project-root}/bmad/workflows/${wf}/workflow.yaml">Execute ${wf}</item>`);
+      }
+    }
+    lines.push('    <item cmd="*exit">Exit with confirmation</item>');
+    lines.push('  </menu>');
+    lines.push('</agent>');
+    lines.push('```');
+
+    return lines.join('\n');
   }
 }

@@ -301,6 +301,60 @@ You can also work with the tool directly (useful for development/testing):
 
 ### Advanced Configuration
 
+**Database persistence (recommended):**
+
+Enable document storage, full-text search, and workflow status tracking:
+
+```json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "npx",
+      "args": ["-y", "bmad-mcp-server"],
+      "env": {
+        "BMAD_DB_URL": "sqlite:///home/user/.bmad/bmad.db"
+      }
+    }
+  }
+}
+```
+
+PostgreSQL also supported:
+
+```json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "npx",
+      "args": ["-y", "bmad-mcp-server"],
+      "env": {
+        "BMAD_DB_URL": "postgresql://user:password@localhost:5432/bmad"
+      }
+    }
+  }
+}
+```
+
+Without `BMAD_DB_URL` the server runs in read-only mode (agents, workflows, `bmad://` resources still work). DB operations return a clear error if no connection is configured. If `BMAD_DB_URL` is set but the connection fails, the server starts and logs the error — DB operations will fail with a descriptive message until the connection is fixed and the server restarted.
+
+Check DB status at any time via `bmad://_db/status`.
+
+**DB operations available:**
+
+```typescript
+// Save a document
+{ operation: "db", db: { action: "save", path: "prd/checkout.md", content: "..." } }
+
+// Read a document
+{ operation: "db", db: { action: "read", path: "prd/checkout.md" } }
+
+// Full-text search (supports spanish and english)
+{ operation: "db", db: { action: "search", query: "payment gateway", language: "spanish" } }
+
+// Save workflow status
+{ operation: "db", db: { action: "status-save", status: { step: 3 } }, workflow: "prd" }
+```
+
 **Multi-source loading with Git remotes:**
 
 ```json
@@ -328,6 +382,44 @@ You can also work with the tool directly (useful for development/testing):
       "args": ["-y", "bmad-mcp-server"],
       "env": {
         "BMAD_ROOT": "/custom/bmad/location"
+      }
+    }
+  }
+}
+```
+
+**Local development (from source):**
+
+```json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "node",
+      "args": ["/path/to/bmad-mcp-server/build/index.js"],
+      "env": {
+        "BMAD_DB_URL": "sqlite:///home/user/.bmad/bmad.db"
+      }
+    }
+  }
+}
+```
+
+**Full configuration (DB + Git remotes + custom root):**
+
+```json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "bmad-mcp-server",
+        "git+https://github.com/org/custom-bmad.git#main",
+        "git+https://github.com/org/private-tools.git#v2.0.0"
+      ],
+      "env": {
+        "BMAD_DB_URL": "postgresql://user:password@localhost:5432/bmad",
+        "BMAD_ROOT": "/home/user/projects/my-app"
       }
     }
   }

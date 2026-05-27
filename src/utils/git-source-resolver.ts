@@ -495,12 +495,9 @@ export class GitSourceResolver {
 
       logger.info(`Updated to commit: ${commitSha.substring(0, 7)}`);
     } catch (error) {
-      logger.error(
-        `Failed to update ${spec.org}/${spec.repo}, falling back to reclone`,
+      throw new Error(
+        `Failed to update ${spec.org}/${spec.repo}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      logger.debug(`Update error: ${String(error)}`);
-      await this.removeDirectory(cachePath);
-      await this.cloneRepository(spec, cachePath, originalUrl);
     }
   }
 

@@ -43,10 +43,17 @@
 import { BMADServerLiteMultiToolGit } from './server.js';
 
 /**
+ * Built-in default BMAD source URL - auto-cloned on first startup.
+ */
+const DEFAULT_BMAD_REMOTE =
+  'git+https://github.com/bmad-code-org/BMAD-METHOD.git';
+
+/**
  * Main entry point function
  *
  * Parses command line arguments and starts the MCP server.
  * All arguments starting with 'git+' are treated as Git remote URLs.
+ * The canonical BMAD-METHOD repo is always included as a default source.
  *
  * @remarks
  * The function filters command line arguments to extract Git URLs and passes
@@ -55,9 +62,14 @@ import { BMADServerLiteMultiToolGit } from './server.js';
  */
 async function main() {
   // Parse Git URLs from command line arguments
-  const gitRemotes = process.argv
+  const userRemotes = process.argv
     .slice(2)
     .filter((arg) => arg.startsWith('git+'));
+
+  // Always include the canonical BMAD-METHOD source for auto-discovery
+  const gitRemotes = userRemotes.length > 0
+    ? userRemotes
+    : [DEFAULT_BMAD_REMOTE];
 
   // Allow overriding project root via BMAD_ROOT environment variable
   // This is useful for testing and custom deployments
