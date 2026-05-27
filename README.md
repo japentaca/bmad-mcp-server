@@ -2,12 +2,14 @@
 
 <div align="center">
 
-[![npm version](https://badge.fury.io/js/bmad-mcp-server.svg)](https://www.npmjs.com/package/bmad-mcp-server)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
+[![CI](https://github.com/japentaca/bmad-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/japentaca/bmad-mcp-server/actions/workflows/ci.yml)
 
 A Model Context Protocol server that brings the [BMAD Method](https://github.com/bmad-code-org/BMAD-METHOD) to AI assistants.
 
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [Documentation](#documentation)
+> **Fork** of [mkellerman/bmad-mcp-server](https://github.com/mkellerman/bmad-mcp-server) with hard-fail error handling, database persistence (SQLite + PostgreSQL), and enhanced observability.
+
+[Features](#features) • [Fork Differences](#fork-differences) • [Installation](#installation) • [Usage](#usage) • [Documentation](#documentation)
 
 </div>
 
@@ -82,6 +84,52 @@ party-mode       # Multi-agent brainstorming
 - **Prompts** - Agents as native MCP prompts
 - **Completions** - Smart autocomplete for arguments
 - **Multi-source** - Project, user, and Git remote support
+
+---
+
+## Fork Differences
+
+This fork diverges from the [original](https://github.com/mkellerman/bmad-mcp-server) in several key ways:
+
+### Error Handling — Hard Fail, No Fallbacks
+
+| Behavior | Original | This Fork |
+|---|---|---|
+| DB connection fails | Falls back silently to file storage | **Throws** — connection error propagates |
+| Missing `BMAD_DB_URL` | Uses file storage transparently | **Read-only mode** — agents/workflows work, DB operations return clear error |
+| Agent file not found | Generates synthetic content from metadata | **Throws** — missing files are hard errors |
+| Manifest parse failure | Returns empty name-only list | **Throws** — bad data is surfaced immediately |
+| YAML/XML parse errors | Silently skipped | **Throws** — malformed content must be fixed |
+| Git update failure | Falls back to full reclone | **Throws** — network/data issues are reported |
+
+All silent `catch {}` blocks in the resource loader, source adapter, and engine have been removed.
+
+### Database Persistence
+
+- **SQLite** via `BMAD_DB_URL=sqlite:///path/to/db.sqlite` (file-based, zero setup)
+- **PostgreSQL** via `BMAD_DB_URL=postgresql://user:pass@host/db`
+- Documents, full-text search (Spanish + English), and workflow status tracking
+- Check health at any time: read `bmad://_db/status` (returns `latencyMs`, `pool` size, `driver`)
+
+### DB Parameters — Nested Sub-object
+
+```typescript
+// This fork (nested)
+{ operation: "db", db: { action: "save", path: "docs/a.md", content: "..." } }
+
+// Original (flat)
+{ operation: "db", dbAction: "save", dbPath: "docs/a.md", dbContent: "..." }
+```
+
+### Observability
+
+- `bmad://_db/status` returns `{ connected, driver, health: { latencyMs, pool: { active, idle, waiting } } }`
+- `bmad://_cfg/help.md` — virtual self-documentation resource with setup, configuration, and examples
+- Startup logs include DB latency and driver info
+
+### Testing
+
+- 219 unit tests (vs original ~195) including 24 KnexStorage tests with `sqlite://:memory:`
 
 ---
 
