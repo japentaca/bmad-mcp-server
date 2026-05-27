@@ -89,47 +89,71 @@ party-mode       # Multi-agent brainstorming
 
 ## Fork Differences
 
-This fork diverges from the [original](https://github.com/mkellerman/bmad-mcp-server) in several key ways:
+This fork adds significant capabilities on top of the [original](https://github.com/mkellerman/bmad-mcp-server), which was a read-only server exposing BMAD agents and workflows. Key additions:
 
-### Error Handling — Hard Fail, No Fallbacks
+### Database Persistence (NEW — not present in original)
 
-| Behavior | Original | This Fork |
+The original had no database layer. This fork adds full persistence via Knex (SQLite + PostgreSQL):
+
+| Capability | Description |
+|---|---|
+| Document storage | Save, read, list, and search documents across projects |
+| Full-text search | PostgreSQL `tsvector` or SQLite `LIKE`-based, Spanish and English |
+| Workflow status | Track progress per workflow per project |
+| SQLite zero-config | `BMAD_DB_URL=sqlite:///path/to/db.sqlite` — no server needed |
+| PostgreSQL | `BMAD_DB_URL=postgresql://user:pass@host/db` — for multi-user/team setups |
+
+Without `BMAD_DB_URL` the server runs in read-only mode — agents, workflows, and `bmad://` resources work normally. DB operations return a clear error explaining the variable must be set.
+
+### Hard-Fail Error Policy (CHANGED)
+
+| Scenario | Original | This Fork |
 |---|---|---|
-| DB connection fails | Falls back silently to file storage | **Throws** — connection error propagates |
-| Missing `BMAD_DB_URL` | Uses file storage transparently | **Read-only mode** — agents/workflows work, DB operations return clear error |
-| Agent file not found | Generates synthetic content from metadata | **Throws** — missing files are hard errors |
-| Manifest parse failure | Returns empty name-only list | **Throws** — bad data is surfaced immediately |
-| YAML/XML parse errors | Silently skipped | **Throws** — malformed content must be fixed |
-| Git update failure | Falls back to full reclone | **Throws** — network/data issues are reported |
+| Missing agent/workflow file | Throws — file not found | Throws — file not found |
+| Corrupted YAML/XML metadata | **Silently skipped** | **Throws** — bad data must be fixed |
+| CSV manifest parse failure | **Returns empty list** | **Throws** — invalid data surfaced |
+| Agent file unreadable | **Generated synthetic content** | **Throws** — missing file is a hard error |
+| bmad-method source scan fails | **Silently ignored** | **Throws** — scan failure is reported |
+| Directory read errors | **Silently swallowed** | **Throws** — path/permission issues exposed |
+| Git repo update fails | **Fell back to full reclone** | **Throws** — network/data errors propagate |
+| DB connection fails | *(no DB existed)* | **Throws** — explicit failure, no silent fallback |
 
-All silent `catch {}` blocks in the resource loader, source adapter, and engine have been removed.
+Every `catch {}` block that silently swallowed errors has been replaced with explicit `throw`.
 
-### Database Persistence
+### DB Parameters — Nested Sub-object (CHANGED)
 
-- **SQLite** via `BMAD_DB_URL=sqlite:///path/to/db.sqlite` (file-based, zero setup)
-- **PostgreSQL** via `BMAD_DB_URL=postgresql://user:pass@host/db`
-- Documents, full-text search (Spanish + English), and workflow status tracking
-- Check health at any time: read `bmad://_db/status` (returns `latencyMs`, `pool` size, `driver`)
-
-### DB Parameters — Nested Sub-object
+The original had no `db` operation. This fork uses a nested `db: {}` object:
 
 ```typescript
-// This fork (nested)
-{ operation: "db", db: { action: "save", path: "docs/a.md", content: "..." } }
+// Save a document
+{ operation: "db", db: { action: "save", path: "docs/prd.md", content: "..." } }
 
-// Original (flat)
-{ operation: "db", dbAction: "save", dbPath: "docs/a.md", dbContent: "..." }
+// Full-text search
+{ operation: "db", db: { action: "search", query: "payment", language: "spanish" } }
+
+// Workflow status
+{ operation: "db", db: { action: "status-save", status: { step: 3 } }, workflow: "prd" }
 ```
 
-### Observability
+### Observability (NEW)
 
-- `bmad://_db/status` returns `{ connected, driver, health: { latencyMs, pool: { active, idle, waiting } } }`
-- `bmad://_cfg/help.md` — virtual self-documentation resource with setup, configuration, and examples
-- Startup logs include DB latency and driver info
+| Resource | Content |
+|---|---|
+| `bmad://_db/status` | `{ connected, driver, health: { healthy, latencyMs, pool: { active, idle, waiting } } }` |
+| `bmad://_cfg/help.md` | Self-documentation: setup, mcp.json examples, operations, customization |
+| Startup logs | DB driver, latency, agent/workflow/resource counts |
+
+### BMAD Method Source Adapter (NEW)
+
+Automatically detects and parses the [BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD) repository source format (`{module}-skills/` directories, `customize.toml`, `SKILL.md`) to discover additional agents and workflows not present in the bundled files.
+
+### Auto-Sync (NEW)
+
+On startup, clones `github.com/bmad-code-org/BMAD-METHOD` via Git to `~/.bmad/cache/git/` for the latest agents and workflows. Additional Git remotes can be configured in `mcp.json`.
 
 ### Testing
 
-- 219 unit tests (vs original ~195) including 24 KnexStorage tests with `sqlite://:memory:`
+- **219** unit tests (**24** new: KnexStorage CRUD, full-text search, workflow status, health checks with `sqlite://:memory:`)
 
 ---
 
