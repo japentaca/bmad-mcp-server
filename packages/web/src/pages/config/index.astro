@@ -1,0 +1,31 @@
+---
+import Layout from '@layouts/Layout.astro';
+---
+
+<Layout title="Configuration">
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+    <a href="/config/view" style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; text-decoration: none; color: inherit; transition: box-shadow 0.2s;">
+      <i class="pi pi-eye" style="font-size: 1.5rem; color: var(--primary-color); margin-bottom: 0.75rem;"></i>
+      <h3 style="font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem;">Merge Viewer</h3>
+      <p style="font-size: 0.75rem; color: var(--text-color-secondary); margin: 0;">
+        Visualize how the 4-layer config.toml merge works: base → user → custom/team → custom/user.
+      </p>
+    </a>
+
+    <a href="/config/roster" style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; text-decoration: none; color: inherit; transition: box-shadow 0.2s;">
+      <i class="pi pi-users" style="font-size: 1.5rem; color: var(--primary-color); margin-bottom: 0.75rem;"></i>
+      <h3 style="font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem;">Agent Roster</h3>
+      <p style="font-size: 0.75rem; color: var(--text-color-secondary); margin: 0;">
+        Manage agents available for party-mode, retrospective, and advanced elicitation.
+      </p>
+    </a>
+
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+      <i class="pi pi-database" style="font-size: 1.5rem; color: var(--primary-color); margin-bottom: 0.75rem;"></i>
+      <h3 style="font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem;">DB Connection</h3>
+      <p style="font-size: 0.75rem; color: var(--text-color-secondary); margin: 0;">
+        Set via <code>BMAD_DB_URL</code> environment variable. Supports PostgreSQL and SQLite.
+      </p>
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,67 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { getDb } from '@lib/db';
+
+const db = getDb();
+await db.initialize();
+
+type Row = Record<string, unknown>;
+const projects = await db.query('bmad_projects').select('name', 'config', 'created_at').limit(10) as Row[];
+const recentDocs = await db.query('bmad_documents').select('project_name', 'path', 'content_type', 'updated_at').orderBy('updated_at', 'desc').limit(10) as Row[];
+const workflowCounts = await db.query('bmad_workflow_status').count('* as total').first() as Row | undefined;
+const docCounts = await db.query('bmad_documents').count('* as total').first() as Row | undefined;
+---
+
+<Layout title="Dashboard">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+      <p style="font-size: 0.875rem; color: var(--text-color-secondary); margin: 0;">Projects</p>
+      <p style="font-size: 2rem; font-weight: 700; margin: 0.25rem 0 0;">{projects.length}</p>
+    </div>
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+      <p style="font-size: 0.875rem; color: var(--text-color-secondary); margin: 0;">Documents</p>
+      <p style="font-size: 2rem; font-weight: 700; margin: 0.25rem 0 0;">{docCounts?.total ?? 0}</p>
+    </div>
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+      <p style="font-size: 0.875rem; color: var(--text-color-secondary); margin: 0;">Workflow Statuses</p>
+      <p style="font-size: 2rem; font-weight: 700; margin: 0.25rem 0 0;">{workflowCounts?.total ?? 0}</p>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+      <h3 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 1rem;">Projects</h3>
+      {projects.length === 0 ? (
+        <p style="color: var(--text-color-secondary); margin: 0;">No projects found.</p>
+      ) : (
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          {projects.map((p: any) => (
+            <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--surface-border);">
+              <a href={`/projects/${p.name}`} style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
+                {p.name}
+              </a>
+              <span style="font-size: 0.75rem; color: var(--text-color-secondary); margin-left: 0.5rem;">{p.created_at}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+      <h3 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 1rem;">Recent Documents</h3>
+      {recentDocs.length === 0 ? (
+        <p style="color: var(--text-color-secondary); margin: 0;">No documents found.</p>
+      ) : (
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          {recentDocs.map((d: any) => (
+            <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--surface-border);">
+              <span style="font-size: 0.875rem; color: var(--text-color-secondary);">{d.project_name}</span>
+              <span style="font-size: 0.875rem; margin-left: 0.5rem;">{d.path}</span>
+              <span style="font-size: 0.75rem; color: var(--text-color-secondary); margin-left: 0.5rem; text-transform: capitalize;">({d.content_type})</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,40 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { getDb } from '@lib/db';
+
+const db = getDb();
+await db.initialize();
+
+type Row = Record<string, unknown>;
+const projects = await db.query('bmad_projects').select('name', 'config', 'created_at').orderBy('created_at', 'desc') as Row[];
+---
+
+<Layout title="Projects">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <p style="margin: 0;">{projects.length} projects</p>
+    <a href="/projects/new" style="display: inline-block; background: var(--primary-color); color: var(--primary-color-text); padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; font-weight: 500; font-size: 0.875rem;">
+      <i class="pi pi-plus" style="margin-right: 0.25rem;"></i> New Project
+    </a>
+  </div>
+
+  {projects.length === 0 ? (
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 2rem; text-align: center; color: var(--text-color-secondary);">
+      <i class="pi pi-folder" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+      <p>No projects found. Create your first project to get started.</p>
+    </div>
+  ) : (
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+      {projects.map((p: any) => (
+        <a href={`/projects/${p.name}`} style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; text-decoration: none; color: inherit; display: block; transition: box-shadow 0.2s;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <i class="pi pi-folder" style="font-size: 1.25rem; color: var(--primary-color);"></i>
+            <h3 style="font-size: 1.125rem; font-weight: 600; margin: 0;">{p.name}</h3>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-color-secondary);">
+            Created: {p.created_at}
+          </div>
+        </a>
+      ))}
+    </div>
+  )}
+</Layout>

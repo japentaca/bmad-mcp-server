@@ -1,0 +1,43 @@
+{
+  "name": "@bmad/shared",
+  "version": "3.1.0",
+  "description": "Shared storage, types, and utilities for BMAD MCP and web",
+  "type": "module",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js"
+    },
+    "./storage": {
+      "types": "./build/storage/index.d.ts",
+      "import": "./build/storage/index.js"
+    },
+    "./types": {
+      "types": "./build/types/index.d.ts",
+      "import": "./build/types/index.js"
+    },
+    "./utils": {
+      "types": "./build/utils/index.d.ts",
+      "import": "./build/utils/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf build/",
+    "migrate": "npx tsx scripts/migrate.ts",
+    "migrate:rollback": "npx tsx scripts/migrate.ts rollback",
+    "migrate:down": "npx tsx scripts/migrate.ts down",
+    "migrate:list": "npx tsx scripts/migrate.ts list"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "knex": "^3.2.10",
+    "pg": "^8.21.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13"
+  }
+}

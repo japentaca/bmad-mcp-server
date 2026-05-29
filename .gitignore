@@ -81,6 +81,18 @@ temp/
 # Output of 'npm pack'
 *.tgz
 
+# BMAD bundle (generated at postinstall)
+packages/mcp/bmad-bundle/
+
+# Shared package build output
+packages/shared/build/
+
+# Web app DB file
+packages/web/bmad.db
+
+# Web app env
+packages/web/.env
+
 # Yarn
 .yarn-integrity
 .yarn/cache

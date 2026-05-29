@@ -1,0 +1,66 @@
+---
+import Layout from '@layouts/Layout.astro';
+
+let error = '';
+let success = '';
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const name = data.get('name')?.toString().trim() || '';
+  const configStr = data.get('config')?.toString() || '{}';
+
+  if (!name) {
+    error = 'Project name is required.';
+  } else {
+    try {
+      const config = JSON.parse(configStr);
+      const { getDb } = await import('@lib/db');
+      const db = getDb();
+      await db.initialize();
+      await db.ensureProject(name, config);
+      success = name;
+    } catch (e: any) {
+      error = e.message;
+    }
+  }
+}
+
+if (success) {
+  return Astro.redirect(`/projects/${success}`);
+}
+---
+
+<Layout title="New Project">
+  <div style="max-width: 32rem; background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+    <h2 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 1.5rem;">Create New Project</h2>
+
+    {error && (
+      <div style="background: #FEE2E2; color: #991B1B; padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 1rem; font-size: 0.875rem;">
+        {error}
+      </div>
+    )}
+
+    <form method="POST">
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem;" for="name">Project Name *</label>
+        <input id="name" name="name" type="text" required
+          style="width: 100%; border: 1px solid var(--surface-border); border-radius: 0.375rem; padding: 0.5rem 0.75rem; outline: none; box-sizing: border-box;"
+          placeholder="my-project" />
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem;" for="config">Config (JSON, optional)</label>
+        <textarea id="config" name="config" rows="4"
+          style="width: 100%; border: 1px solid var(--surface-border); border-radius: 0.375rem; padding: 0.5rem 0.75rem; outline: none; box-sizing: border-box; font-family: monospace; font-size: 0.875rem;"
+          placeholder='{}'></textarea>
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="submit" style="background: var(--primary-color); color: var(--primary-color-text); border: none; border-radius: 0.375rem; padding: 0.5rem 1rem; cursor: pointer; font-weight: 500; font-size: 0.875rem;">
+          Create Project
+        </button>
+        <a href="/projects" style="display: inline-block; background: var(--surface-hover); color: var(--text-color); padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.875rem;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</Layout>

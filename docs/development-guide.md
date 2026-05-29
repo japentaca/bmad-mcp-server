@@ -1,19 +1,19 @@
-# Development Guide - BMAD MCP Server
+# Development Guide — BMAD Development Platform
 
-**Version:** 4.0.0  
-**Last Updated:** November 6, 2025
+**Version:** 3.1.0  
+**Last Updated:** May 2026
 
 ---
 
 ## Overview
 
-Complete development workflow for the BMAD MCP Server - from setup through testing, building, and contributing.
+Monorepo development workflow for the BMAD Development Platform.
 
 **Tech Stack:**
-
 - **Language:** TypeScript 5.7.2 (strict mode, ES2022)
 - **Runtime:** Node.js 18+
-- **Protocol:** MCP SDK 1.0.4
+- **Web:** Astro 6 + Vue 3
+- **DB:** SQLite / PostgreSQL via knex
 - **Testing:** Vitest 4.0.3
 - **Linting:** ESLint 9.17.0 + Prettier 3.4.2
 
@@ -66,32 +66,23 @@ npm run cli:list-agents
 ## Project Structure
 
 ```
-bmad-mcp-server/
-├── src/                    # TypeScript source code
-│   ├── index.ts            # MCP server entry point
-│   ├── cli.ts              # CLI entry point
-│   ├── server.ts           # MCP server implementation
-│   ├── config.ts           # Configuration
-│   ├── core/               # Core business logic
-│   │   ├── bmad-engine.ts  # Transport-agnostic engine
-│   │   └── resource-loader.ts # Multi-source content loading
-│   ├── tools/              # Tool implementations
-│   │   ├── bmad-unified.ts # Unified bmad tool
-│   │   └── operations/     # Operation handlers
-│   ├── types/              # TypeScript types
-│   └── utils/              # Utilities
-├── build/                  # Compiled JavaScript (generated)
-├── tests/                  # Test suites
-│   ├── unit/               # Unit tests
-│   ├── integration/        # Integration tests
-│   ├── e2e/                # End-to-end tests
-│   ├── framework/          # Test infrastructure
-│   ├── fixtures/           # Test data
-│   └── helpers/            # Test utilities
-├── scripts/                # Development scripts
+bmad-platform/
+├── vendor/bmad/            # Agent definitions (9 self-contained .md files)
+│   ├── dev.md              # Developer
+│   ├── reviewer.md         # Adversarial code reviewer
+│   ├── tea.md              # Test architect
+│   ├── pm.md               # Product manager
+│   ├── architect.md        # System architect
+│   ├── analyst.md          # Business analyst
+│   ├── ux-designer.md      # UX designer
+│   ├── sm.md               # Scrum master
+│   └── debug.md            # Debug specialist
+├── packages/
+│   ├── shared/             # @bmad/shared — DB layer, types, utils
+│   ├── mcp/                # bmad-mcp-extended — MCP server (DB persistence)
+│   └── web/                # @bmad/web — Admin UI + Orchestrator
 ├── docs/                   # Documentation
-├── coverage/               # Test coverage (generated)
-└── test-results/           # Test results (generated)
+└── AGENTS.md               # AI agent instructions
 ```
 
 ---
@@ -619,21 +610,14 @@ npm install bmad-mcp-server@alpha
 
 ## Environment Variables
 
-| Variable    | Purpose               | Default           |
-| ----------- | --------------------- | ----------------- |
-| `BMAD_ROOT` | Override project root | Current directory |
-| `DEBUG`     | Enable debug logging  | `false`           |
-| `NODE_ENV`  | Environment mode      | `development`     |
-
-**Usage:**
-
-```bash
-# Override project root
-BMAD_ROOT=/custom/path npm run dev
-
-# Enable debug logging
-DEBUG=true npm run dev
-```
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `BMAD_DB_URL` | Database connection | — |
+| `BMAD_SQLITE_PATH` | SQLite file path (MCP) | — |
+| `BMAD_ACCESS_TOKEN` | Web panel auth token | `changeme` |
+| `BMAD_VENDOR_PATH` | Agent definitions location | `vendor/bmad/` |
+| `BMAD_WS_PORT` | WebSocket server port | `3001` |
+| `BMAD_ROOT` | Project root override | CWD |
 
 ---
 

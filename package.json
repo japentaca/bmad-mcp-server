@@ -1,109 +1,35 @@
 {
-  "name": "bmad-mcp-server",
-  "version": "2.1.0",
-  "description": "Model Context Protocol server for BMAD methodology",
-  "type": "module",
-  "bin": {
-    "bmad-mcp-server": "./build/index.js",
-    "bmad": "./build/cli.js"
-  },
-  "scripts": {
-    "build": "tsc && chmod +x build/index.js && chmod +x build/cli.js",
-    "clean": "rm -rf build/ coverage/ test-results/ .bmad/cache/",
-    "clean:all": "npm run clean && rm -rf node_modules/ package-lock.json",
-    "prebuild": "node scripts/bundle-bmad.cjs",
-    "prepare": "node scripts/bundle-bmad.cjs && npm run build || true",
-    "start": "node build/index.js",
-    "dev": "tsx src/index.ts",
-    "test": "vitest run tests/unit tests/integration",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage tests/unit tests/integration",
-    "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
-    "test:e2e": "vitest run tests/e2e",
-    "test:llm": "npm run test:e2e",
-    "test:all": "npm run test:unit; npm run test:integration; npm run test:e2e",
-    "test:clean": "rm -rf test-results/.results/default* test-results/.results/unit* test-results/.results/integration* test-results/.results/e2e* test-results/test-results.* coverage/",
-    "test:litellm-start": "docker-compose -f tests/e2e/framework/docker-compose.yml up -d",
-    "test:litellm-stop": "docker-compose -f tests/e2e/framework/docker-compose.yml down",
-    "test:litellm-logs": "docker-compose -f tests/e2e/framework/docker-compose.yml logs -f",
-    "test:litellm-health": "curl -s http://localhost:4000/health/readiness | jq",
-    "lint": "eslint . --ext .ts,.js,.mjs",
-    "lint:fix": "eslint . --ext .ts,.js,.mjs --fix",
-    "format": "prettier --write .",
-    "precommit": "npm run lint:fix && npm run format",
-    "cli": "node scripts/bmad-cli.mjs",
-    "cli:list-tools": "node scripts/bmad-cli.mjs tools/list",
-    "cli:list-resources": "node scripts/bmad-cli.mjs resources/list",
-    "cli:list-agents": "node scripts/show-list-agents.mjs",
-    "cli:list-workflows": "node scripts/show-list-workflows.mjs"
-  },
-  "files": [
-    "build/",
-    "bmad-bundle/"
+  "name": "bmad-workspace",
+  "version": "3.1.0",
+  "private": true,
+  "description": "BMAD monorepo - MCP server, web management app, shared libraries",
+  "workspaces": [
+    "packages/shared",
+    "packages/mcp",
+    "packages/web"
   ],
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/pg": "^8.20.0",
-    "better-sqlite3": "^12.10.0",
-    "bmad-method": "^6.8.0",
-    "csv-parse": "^6.1.0",
-    "fast-xml-parser": "^5.3.1",
-    "js-yaml": "^4.1.0",
-    "knex": "^3.2.10",
-    "pg": "^8.21.0"
+  "scripts": {
+    "build": "npm run build -w packages/shared && npm run build -w packages/mcp && npm run build -w packages/web",
+    "build:shared": "npm run build -w packages/shared",
+    "build:mcp": "npm run build -w packages/mcp",
+    "build:web": "npm run build -w packages/web",
+    "dev:web": "npm run dev -w packages/web",
+    "lint": "eslint packages --ext .ts,.js,.mjs",
+    "lint:fix": "eslint packages --ext .ts,.js,.mjs --fix",
+    "format": "prettier --write .",
+    "test": "npm run test -w packages/mcp"
   },
   "devDependencies": {
-    "@clack/prompts": "^0.11.0",
+    "@eslint/js": "^9.38.0",
     "@commitlint/cli": "^20.1.0",
     "@commitlint/config-conventional": "^20.0.0",
-    "@eslint/js": "^9.38.0",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.9.1",
-    "@vitest/coverage-v8": "^4.0.3",
-    "@vitest/ui": "^4.0.3",
-    "dotenv": "^17.2.3",
     "eslint": "^9.17.0",
     "globals": "^16.4.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.6",
-    "openai": "^6.7.0",
-    "picocolors": "^1.1.1",
     "prettier": "^3.4.2",
-    "semantic-release": "^25.0.1",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.18.2",
-    "vitest": "^4.0.3"
-  },
-  "keywords": [
-    "mcp",
-    "model-context-protocol",
-    "bmad",
-    "agile",
-    "ai-agents"
-  ],
-  "author": "japentaca",
-  "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/japentaca/bmad-mcp-server"
-  },
-  "bugs": {
-    "url": "https://github.com/japentaca/bmad-mcp-server/issues"
-  },
-  "homepage": "https://github.com/japentaca/bmad-mcp-server#readme",
-  "lint-staged": {
-    "*.{ts,js,mjs}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ]
+    "typescript-eslint": "^8.18.2"
   }
 }

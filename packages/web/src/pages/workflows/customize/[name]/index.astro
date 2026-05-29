@@ -1,0 +1,36 @@
+---
+import Layout from '@layouts/Layout.astro';
+import TomlCustomizeEditor from '@components/TomlCustomizeEditor.vue';
+
+const name = Astro.params.name ?? 'unknown';
+---
+
+<Layout title={`Customize Workflow: ${name}`}>
+  <div style="margin-bottom: 1rem;">
+    <a href="/workflows" style="color: var(--primary-color); text-decoration: none; font-size: 0.875rem;">
+      &larr; Back to Workflows
+    </a>
+  </div>
+
+  <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; max-width: 48rem;">
+    <div style="border-bottom: 1px solid var(--surface-border); margin-bottom: 1.5rem; padding-bottom: 1rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem;">Workflow Customization: {name}</h2>
+      <p style="color: var(--text-color-secondary); font-size: 0.75rem; margin: 0;">
+        File: <code>_bmad/custom/bmad-{name}.toml</code>
+      </p>
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <p style="font-size: 0.8rem; color: var(--text-color-secondary); margin: 0;">
+        Edit <code>activation_steps</code>, <code>persistent_facts</code>, and <code>on_complete</code> actions.
+      </p>
+    </div>
+
+    <TomlCustomizeEditor
+      workflowName={name}
+      type="workflow"
+      layer="team"
+      client:load
+    />
+  </div>
+</Layout>

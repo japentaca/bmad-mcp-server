@@ -1,0 +1,19 @@
+---
+import Layout from '@layouts/Layout.astro';
+import KanbanBoard from '@components/KanbanBoard.vue';
+
+const name = Astro.params.name ?? 'unknown';
+---
+
+<Layout title={`${name} — Kanban Board`}>
+  <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+    <a href={`/projects/${name}`} style="color: var(--primary-color); text-decoration: none; font-size: 0.875rem;">
+      &larr; Back to {name}
+    </a>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href={`/projects/${name}/charts`} style="font-size: 0.8rem; color: var(--text-color-secondary); text-decoration: none;">Charts</a>
+      <a href={`/projects/${name}/gantt`} style="font-size: 0.8rem; color: var(--text-color-secondary); text-decoration: none;">Gantt</a>
+    </div>
+  </div>
+  <KanbanBoard projectName={name} client:only="vue" />
+</Layout>

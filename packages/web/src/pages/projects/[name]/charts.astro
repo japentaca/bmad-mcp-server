@@ -1,0 +1,19 @@
+---
+import Layout from '@layouts/Layout.astro';
+import ProjectCharts from '@components/ProjectCharts.vue';
+
+const name = Astro.params.name ?? 'unknown';
+---
+
+<Layout title={`${name} — Charts`}>
+  <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+    <a href={`/projects/${name}`} style="color: var(--primary-color); text-decoration: none; font-size: 0.875rem;">
+      &larr; Back to {name}
+    </a>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href={`/projects/${name}/kanban`} style="font-size: 0.8rem; color: var(--text-color-secondary); text-decoration: none;">Kanban</a>
+      <a href={`/projects/${name}/gantt`} style="font-size: 0.8rem; color: var(--text-color-secondary); text-decoration: none;">Gantt</a>
+    </div>
+  </div>
+  <ProjectCharts projectName={name} client:only="vue" />
+</Layout>

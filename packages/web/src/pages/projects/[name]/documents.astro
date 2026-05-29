@@ -1,0 +1,103 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { getDb } from '@lib/db';
+
+const name = Astro.params.name ?? 'unknown';
+const db = getDb();
+await db.initialize();
+
+const searchQuery = Astro.url.searchParams.get('q') || '';
+
+type Row = Record<string, unknown>;
+let documents: Row[];
+
+if (searchQuery) {
+  const results = await db.searchDocuments({ projectName: name, query: searchQuery, limit: 50 });
+  documents = results.map(r => ({
+    project_name: name,
+    path: r.path,
+    content_type: r.contentType,
+    snippet: r.snippet,
+    updated_at: r.updatedAt,
+    version: 0,
+  }));
+} else {
+  documents = await db.query('bmad_documents')
+    .where('project_name', name)
+    .select('id', 'path', 'content_type', 'workflow', 'agent', 'version', 'updated_at')
+    .orderBy('updated_at', 'desc')
+    .limit(50) as Row[];
+}
+---
+
+<Layout title={`${name} — Documents`}>
+  <div style="margin-bottom: 1rem;">
+    <a href={`/projects/${name}`} style="color: var(--primary-color); text-decoration: none; font-size: 0.875rem;">
+      &larr; Back to {name}
+    </a>
+  </div>
+
+  <form method="GET" style="margin-bottom: 1.5rem; display: flex; gap: 0.5rem;">
+    <input
+      name="q"
+      type="text"
+      value={searchQuery}
+      placeholder="Search documents..."
+      style="flex: 1; border: 1px solid var(--surface-border); border-radius: 0.375rem; padding: 0.5rem 0.75rem; outline: none; box-sizing: border-box;"
+    />
+    <button type="submit" style="background: var(--primary-color); color: var(--primary-color-text); border: none; border-radius: 0.375rem; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.875rem;">
+      Search
+    </button>
+    {searchQuery && (
+      <a href={`/projects/${name}/documents`} style="display: inline-flex; align-items: center; background: var(--surface-hover); color: var(--text-color); padding: 0.5rem 0.75rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.875rem;">
+        Clear
+      </a>
+    )}
+  </form>
+
+  {searchQuery && (
+    <p style="font-size: 0.875rem; color: var(--text-color-secondary); margin-bottom: 1rem;">
+      Search results for "<span style="font-weight: 500;">{searchQuery}</span>" — {documents.length} found
+    </p>
+  )}
+
+  <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    {documents.length === 0 ? (
+      <div style="padding: 2rem; text-align: center; color: var(--text-color-secondary);">
+        {searchQuery ? 'No results found.' : 'No documents found for this project.'}
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--surface-border); text-align: left; font-size: 0.75rem; color: var(--text-color-secondary); text-transform: uppercase;">
+            <th style="padding: 0.75rem 1rem;">Path</th>
+            <th style="padding: 0.75rem 1rem;">Type</th>
+            <th style="padding: 0.75rem 1rem;">Workflow</th>
+            <th style="padding: 0.75rem 1rem;">Version</th>
+            <th style="padding: 0.75rem 1rem;">Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {documents.map((d: any) => (
+            <tr style="border-bottom: 1px solid var(--surface-border); font-size: 0.875rem;">
+              <td style="padding: 0.75rem 1rem;">
+                <span style="font-weight: 500;">{d.path}</span>
+                {searchQuery && d.snippet && (
+                  <div style="font-size: 0.75rem; color: var(--text-color-secondary); margin-top: 0.25rem;">
+                    {d.snippet}
+                  </div>
+                )}
+              </td>
+              <td style="padding: 0.75rem 1rem;">
+                <span style="text-transform: capitalize;">{d.content_type}</span>
+              </td>
+              <td style="padding: 0.75rem 1rem;">{d.workflow || '-'}</td>
+              <td style="padding: 0.75rem 1rem;">v{d.version}</td>
+              <td style="padding: 0.75rem 1rem; color: var(--text-color-secondary); font-size: 0.75rem;">{d.updated_at}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</Layout>

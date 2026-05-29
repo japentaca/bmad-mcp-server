@@ -1,0 +1,52 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { getAllAgents, type AgentMeta } from '@lib/agents';
+
+const agents = getAllAgents();
+
+// Group by module
+const grouped = new Map<string, AgentMeta[]>();
+for (const a of agents) {
+  const existing = grouped.get(a.module) || [];
+  existing.push(a);
+  grouped.set(a.module, existing);
+}
+---
+
+<Layout title="Agents">
+  {agents.length === 0 ? (
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 2rem; text-align: center; color: var(--text-color-secondary);">
+      <i class="pi pi-android" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+      <p>No agents found. Ensure the bmad-bundle is available.</p>
+    </div>
+  ) : (
+    [...grouped.entries()].map(([module, modAgents]) => (
+      <div style="margin-bottom: 2rem;">
+        <h2 style="font-size: 1rem; font-weight: 600; margin: 0 0 1rem; text-transform: uppercase; color: var(--text-color-secondary); letter-spacing: 0.05em;">
+          {module}
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+          {modAgents.map((agent: AgentMeta) => (
+            <a href={`/agents/edit/${agent.name}?module=${agent.module}`}
+              style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; text-decoration: none; color: inherit; display: block; transition: box-shadow 0.2s;">
+              <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                <span style="font-size: 1.5rem;">{agent.icon || '🤖'}</span>
+                <div>
+                  <h3 style="font-size: 1rem; font-weight: 600; margin: 0 0 0.25rem;">
+                    {agent.displayName}
+                  </h3>
+                  <p style="font-size: 0.75rem; color: var(--text-color-secondary); margin: 0 0 0.5rem;">
+                    {agent.name} — {agent.title}
+                  </p>
+                  <span style="font-size: 0.75rem; background: var(--surface-hover); padding: 0.125rem 0.5rem; border-radius: 999px; text-transform: capitalize;">
+                    {agent.role}
+                  </span>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    ))
+  )}
+</Layout>

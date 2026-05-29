@@ -1,0 +1,67 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { getDb } from '@lib/db';
+
+const name = Astro.params.name ?? 'unknown';
+const db = getDb();
+await db.initialize();
+
+type Row = Record<string, unknown>;
+const project = await db.query('bmad_projects').where('name', name).first() as Row | undefined;
+
+if (!project) {
+  return new Response('Project not found', { status: 404 });
+}
+
+const docCount = await db.query('bmad_documents').where('project_name', name).count('* as total').first() as Row | undefined;
+const wfCount = await db.query('bmad_workflow_status').where('project_name', name).count('* as total').first() as Row | undefined;
+const recentDocs = await db.query('bmad_documents').where('project_name', name).select('path', 'content_type', 'version', 'updated_at').orderBy('updated_at', 'desc').limit(5) as Row[];
+---
+
+<Layout title={name}>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+      <p style="font-size: 0.875rem; color: var(--text-color-secondary); margin: 0;">Documents</p>
+      <p style="font-size: 2rem; font-weight: 700; margin: 0.25rem 0 0;">{docCount?.total ?? 0}</p>
+    </div>
+    <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+      <p style="font-size: 0.875rem; color: var(--text-color-secondary); margin: 0;">Workflows</p>
+      <p style="font-size: 2rem; font-weight: 700; margin: 0.25rem 0 0;">{wfCount?.total ?? 0}</p>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <a href={`/projects/${name}/documents`} style="display: inline-block; background: var(--primary-color); color: var(--primary-color-text); padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.875rem; font-weight: 500;">
+      <i class="pi pi-file" style="margin-right: 0.25rem;"></i> Documents
+    </a>
+    <a href={`/projects/${name}/workflows`} style="display: inline-block; background: var(--surface-hover); color: var(--text-color); padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.875rem; font-weight: 500;">
+      <i class="pi pi-sitemap" style="margin-right: 0.25rem;"></i> Workflows
+    </a>
+    <a href={`/projects/${name}/kanban`} style="display: inline-block; background: var(--surface-hover); color: var(--text-color); padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.875rem; font-weight: 500;">
+      <i class="pi pi-th-large" style="margin-right: 0.25rem;"></i> Kanban
+    </a>
+    <a href={`/projects/${name}/charts`} style="display: inline-block; background: var(--surface-hover); color: var(--text-color); padding: 0.5rem 1rem; border-radius: 0.375rem; text-decoration: none; font-size: 0.875rem; font-weight: 500;">
+      <i class="pi pi-chart-bar" style="margin-right: 0.25rem;"></i> Charts
+    </a>
+  </div>
+
+  <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem;">
+    <h3 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 1rem;">Recent Documents</h3>
+    {recentDocs.length === 0 ? (
+      <p style="color: var(--text-color-secondary); margin: 0;">No documents yet.</p>
+    ) : (
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        {recentDocs.map((d: any) => (
+          <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--surface-border); display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span style="font-size: 0.875rem;">{d.path}</span>
+              <span style="font-size: 0.75rem; color: var(--text-color-secondary); margin-left: 0.5rem; text-transform: capitalize;">{d.content_type}</span>
+              <span style="font-size: 0.75rem; color: var(--text-color-secondary); margin-left: 0.5rem;">v{d.version}</span>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-color-secondary);">{d.updated_at}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</Layout>

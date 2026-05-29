@@ -1,0 +1,80 @@
+{
+  "name": "bmad-mcp-extended",
+  "version": "3.1.0",
+  "description": "Model Context Protocol server for BMAD methodology",
+  "type": "module",
+  "bin": {
+    "bmad-mcp-server": "./build/index.js",
+    "bmad": "./build/cli.js"
+  },
+  "scripts": {
+    "build": "npm run build --prefix ../shared && tsc",
+    "clean": "rm -rf build/ coverage/ test-results/ .bmad/cache/",
+    "prebuild": "node scripts/bundle-bmad.cjs",
+    "postbuild": "node scripts/bundle-shared.cjs",
+    "prepare": "node scripts/bundle-bmad.cjs",
+    "postinstall": "node scripts/bundle-bmad.cjs",
+    "start": "node build/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run tests/unit tests/integration",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage tests/unit tests/integration",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "vitest run tests/e2e",
+    "lint": "eslint . --ext .ts,.js,.mjs",
+    "lint:fix": "eslint . --ext .ts,.js,.mjs --fix",
+    "migrate": "tsx scripts/migrate.ts",
+    "migrate:rollback": "tsx scripts/migrate.ts rollback",
+    "migrate:down": "tsx scripts/migrate.ts down",
+    "migrate:list": "tsx scripts/migrate.ts list",
+    "cli:list-tools": "node scripts/bmad-cli.mjs tools/list",
+    "cli:list-resources": "node scripts/bmad-cli.mjs resources/list",
+    "cli:list-agents": "node scripts/show-list-agents.mjs",
+    "cli:list-workflows": "node scripts/show-list-workflows.mjs"
+  },
+  "files": [
+    "build/"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "^8.20.0",
+    "better-sqlite3": "^12.10.0",
+    "bmad-method": "^6.8.0",
+    "csv-parse": "^6.1.0",
+    "dotenv": "^17.2.3",
+    "fast-xml-parser": "^5.3.1",
+    "js-yaml": "^4.1.0",
+    "knex": "^3.2.10",
+    "pg": "^8.21.0"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^0.11.0",
+    "@types/js-yaml": "^4.0.9",
+    "@vitest/coverage-v8": "^4.0.3",
+    "@vitest/ui": "^4.0.3",
+    "openai": "^6.7.0",
+    "picocolors": "^1.1.1",
+    "semantic-release": "^25.0.1",
+    "tsx": "^4.19.2",
+    "vitest": "^4.0.3"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "bmad",
+    "agile",
+    "ai-agents"
+  ],
+  "author": "japentaca",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/japentaca/bmad-mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/japentaca/bmad-mcp-server/issues"
+  },
+  "homepage": "https://github.com/japentaca/bmad-mcp-server#readme"
+}

@@ -1,0 +1,13 @@
+---
+import Layout from '@layouts/Layout.astro';
+import WorkflowFlowMap from '@components/WorkflowFlowMap.vue';
+---
+
+<Layout title="Workflow Flow Map">
+  <div style="margin-bottom: 1rem;">
+    <a href="/workflows" style="color: var(--primary-color); text-decoration: none; font-size: 0.875rem;">
+      &larr; Back to Workflows
+    </a>
+  </div>
+  <WorkflowFlowMap client:only="vue" />
+</Layout>

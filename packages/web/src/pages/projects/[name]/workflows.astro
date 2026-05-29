@@ -1,0 +1,68 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { getDb } from '@lib/db';
+
+const name = Astro.params.name ?? 'unknown';
+const db = getDb();
+await db.initialize();
+
+type Row = Record<string, unknown>;
+const statuses = await db.query('bmad_workflow_status')
+  .where('project_name', name)
+  .select('workflow', 'status', 'updated_at')
+  .orderBy('updated_at', 'desc') as Row[];
+---
+
+<Layout title={`${name} — Workflows`}>
+  <div style="margin-bottom: 1rem;">
+    <a href={`/projects/${name}`} style="color: var(--primary-color); text-decoration: none; font-size: 0.875rem;">
+      &larr; Back to {name}
+    </a>
+  </div>
+
+  <div style="background: var(--surface-card); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    {statuses.length === 0 ? (
+      <div style="padding: 2rem; text-align: center; color: var(--text-color-secondary);">
+        No workflow statuses recorded for this project.
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--surface-border); text-align: left; font-size: 0.75rem; color: var(--text-color-secondary); text-transform: uppercase;">
+            <th style="padding: 0.75rem 1rem;">Workflow</th>
+            <th style="padding: 0.75rem 1rem;">Status</th>
+            <th style="padding: 0.75rem 1rem;">Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {statuses.map((s: any) => {
+            let statusData: any = {};
+            try {
+              statusData = typeof s.status === 'string' ? JSON.parse(s.status) : s.status;
+            } catch {}
+
+            return (
+              <tr style="border-bottom: 1px solid var(--surface-border); font-size: 0.875rem;">
+                <td style="padding: 0.75rem 1rem; font-weight: 500;">{s.workflow}</td>
+                <td style="padding: 0.75rem 1rem;">
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '0.125rem 0.5rem',
+                    borderRadius: '999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    backgroundColor: statusData.completed ? '#DCFCE7' : statusData.started ? '#DBEAFE' : '#F3F4F6',
+                    color: statusData.completed ? '#166534' : statusData.started ? '#1E40AF' : '#374151',
+                  }}>
+                    {statusData.completed ? 'Completed' : statusData.started ? 'In Progress' : 'Created'}
+                  </span>
+                </td>
+                <td style="padding: 0.75rem 1rem; color: var(--text-color-secondary); font-size: 0.75rem;">{s.updated_at}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    )}
+  </div>
+</Layout>
