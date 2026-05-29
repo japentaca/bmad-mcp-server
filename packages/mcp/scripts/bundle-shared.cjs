@@ -28,6 +28,15 @@ copyDirSync(SHARED_BUILD, VENDOR_SHARED);
 console.error('[bundle-shared] Rewriting @bmad/shared imports...');
 rewriteImports(MCP_BUILD, /['"]@bmad\/shared['"]/g, `'./vendor/shared/index.js'`);
 
+// Copy vendor/bmad/ agents into build so they ship with the MCP package
+const ROOT_VENDOR = path.resolve(ROOT, '..', '..', 'vendor', 'bmad');
+const BUILD_VENDOR = path.join(MCP_BUILD, 'vendor', 'bmad');
+if (fs.existsSync(ROOT_VENDOR)) {
+  console.error('[bundle-shared] Copying vendor/bmad/ agents...');
+  fs.rmSync(BUILD_VENDOR, { recursive: true, force: true });
+  copyDirSync(ROOT_VENDOR, BUILD_VENDOR);
+}
+
 function copyDirSync(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {

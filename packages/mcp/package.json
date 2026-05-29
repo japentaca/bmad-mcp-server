@@ -31,7 +31,8 @@
     "cli:list-workflows": "node scripts/show-list-workflows.mjs"
   },
   "files": [
-    "build/"
+    "build/",
+    "build/vendor/"
   ],
   "dependencies": {
     "@bmad/shared": "*",

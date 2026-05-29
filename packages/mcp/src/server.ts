@@ -4,6 +4,14 @@
  * Single 'bmad' tool powered by BMADEngine core.
  */
 
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+} from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -492,6 +500,9 @@ export class BMADServerLiteMultiToolGit {
 
     await this.initialize();
 
+    // Auto-copy vendor/bmad agents to project if missing
+    ensureProjectVendor();
+
     // Initialize storage if BMAD_DB_URL is configured
     try {
       await initializeStorage();
@@ -542,6 +553,36 @@ export class BMADServerLiteMultiToolGit {
       });
     } catch {
       // logging is optional
+    }
+  }
+}
+
+function ensureProjectVendor(): void {
+  try {
+    const projectVendor = join(process.cwd(), 'vendor', 'bmad');
+    if (existsSync(projectVendor)) return;
+
+    const moduleDir = dirname(fileURLToPath(import.meta.url));
+    const bundledVendor = join(moduleDir, 'vendor', 'bmad');
+    if (!existsSync(bundledVendor)) return;
+
+    console.error(`[bmad] Copying agents to ${projectVendor}...`);
+    copyDir(bundledVendor, projectVendor);
+    console.error('[bmad] Agents ready. Use: Read vendor/bmad/pm.md');
+  } catch (err) {
+    console.error('[bmad] Could not copy agents:', err instanceof Error ? err.message : String(err));
+  }
+}
+
+function copyDir(src: string, dest: string): void {
+  mkdirSync(dest, { recursive: true });
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      copyFileSync(srcPath, destPath);
     }
   }
 }

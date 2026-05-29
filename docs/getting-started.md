@@ -8,67 +8,84 @@ Guía práctica para instalar y configurar el sistema completo.
 
 - **Node.js 18+**
 - **OpenCode** (para modo diálogo con agentes)
-- **Git**
 
 ---
 
 ## 1. Instalar
 
 ```bash
-git clone <repo-url> bmad-platform
+git clone https://github.com/japentaca/bmad-mcp-server bmad-platform
 cd bmad-platform
-npm install
-npm run build
+npm install && npm run build
 ```
 
 ---
 
-## 2. Configurar la Web App
+## 2. Configurar el MCP en OpenCode
 
-Creá `.env` en `packages/web/`:
+Agregá a tu `mcp.json`:
 
-```env
-BMAD_DB_URL=sqlite://./bmad.db
-BMAD_ACCESS_TOKEN=changeme
+```json
+{
+  "mcpServers": {
+    "bmad": {
+      "command": "node",
+      "args": ["ruta/a/bmad-platform/packages/mcp/build/index.js"],
+      "env": {
+        "BMAD_SQLITE_PATH": "ruta/a/bmad-platform/bmad.db"
+      }
+    }
+  }
+}
 ```
 
-Arrancá:
+> **Importante:** Usar rutas absolutas. El MCP auto-copia `vendor/bmad/` en tu proyecto al iniciar.
+
+---
+
+## 3. Configurar la Web App
 
 ```bash
 cd packages/web
 npm run dev
 ```
 
-Abrí `http://localhost:4321`. Login con token `changeme`.
+Creá `.env` en `packages/web/`:
+
+```env
+BMAD_DB_URL=sqlite://../bmad.db
+BMAD_ACCESS_TOKEN=changeme
+```
+
+> La DB debe ser la misma que usa el MCP (`BMAD_SQLITE_PATH`).
+
+Abrí `http://localhost:4321`. Login: `changeme`.
 
 ---
 
-## 3. Flujo de trabajo
+## 4. Flujo de trabajo
 
 ### Fase 1: Planificación (OpenCode TUI)
 
-Los agentes BMAD son archivos markdown en `vendor/bmad/`. En OpenCode, los encarnás directamente:
-
 ```
 > Read vendor/bmad/pm.md y definí épicas para un ecommerce
-> Read vendor/bmad/architect.md y diseñá la arquitectura
-> Read vendor/bmad/analyst.md e investigá el mercado
 ```
 
-Guardá los resultados como documentos.
+El MCP copió automáticamente los agentes a `vendor/bmad/` en tu proyecto. Leés el agente que necesitás, lo encarnás, y producís PRDs/stories.
+
+Guardá los resultados en la DB:
+
+```
+bmad({ operation: "db", db: { action: "save", path: "prd/ecommerce.md", content: "..." } })
+```
 
 ### Fase 2: Ejecución (Web UI)
 
 1. Creá un proyecto en `http://localhost:4321`
-2. Andá a la pestaña **Kanban**
-3. Las stories aparecen en **Created**
-4. Clickeá **[Start Dev]**
-5. El pipeline ejecuta 3 stages secuenciales:
-   - `dev.md` — implementa la story
-   - `reviewer.md` — revisión adversarial
-   - `tea.md` — corre tests
-6. Si todo pasa → **Done** ✅
-7. Si algo falla → feedback + botón **[Retry]**
+2. Andá al Kanban → las stories aparecen en **Created**
+3. Clickeá **[Start Dev]**
+4. Pipeline automático: `dev → review → test`
+5. Resultado en **Done** o feedback con **[Retry]**
 
 ### Fase 3: Monitoreo
 
@@ -78,51 +95,51 @@ Guardá los resultados como documentos.
 
 ---
 
-## 4. OpenCode SDK (ejecución real)
-
-Para que `[Start Dev]` ejecute código real:
+## 5. OpenCode SDK (ejecución real)
 
 ```bash
 cd packages/web
 npm install @opencode-ai/sdk
 ```
 
-Sin el SDK, el orquestador funciona en modo simulación.
-
----
-
-## 5. Variables de entorno
-
-| Variable | Propósito | Default |
-|----------|-----------|---------|
-| `BMAD_DB_URL` | Conexión a DB | `sqlite://./bmad.db` |
-| `BMAD_ACCESS_TOKEN` | Token del panel web | `changeme` |
-| `BMAD_VENDOR_PATH` | Ruta a agentes | `vendor/bmad/` |
-| `BMAD_WS_PORT` | Puerto WebSocket | `3001` |
+Sin el SDK, `[Start Dev]` funciona en modo simulación.
 
 ---
 
 ## 6. Customizar agentes
 
-Editá `vendor/bmad/{agente}.md`. El orquestador los lee en runtime. Sin build, sin reinicio.
+Editá `vendor/bmad/{agente}.md`. Sin build, sin reinicio.
 
-Cada archivo es un prompt autocontenido: persona + proceso + formato de output + reglas.
+Los agentes son prompts autocontenidos: persona + proceso + formato de output + reglas.
 
 ---
 
-## 7. Troubleshooting
+## 7. Variables de entorno
 
-**"Start Dev" no hace nada:**
+| Variable | Propósito | Default |
+|----------|-----------|---------|
+| `BMAD_DB_URL` | Conexión a DB | `sqlite://./bmad.db` |
+| `BMAD_SQLITE_PATH` | SQLite path (MCP) | — |
+| `BMAD_ACCESS_TOKEN` | Token del panel web | `changeme` |
+| `BMAD_VENDOR_PATH` | Ruta a agentes (web) | `vendor/bmad/` |
+| `BMAD_WS_PORT` | Puerto WebSocket | `3001` |
+
+---
+
+## 8. Troubleshooting
+
+**"Start Dev" no ejecuta código real:**
 - Instalá `@opencode-ai/sdk` en `packages/web`
-
-**"Agent not found" en los logs:**
-- Verificá que `vendor/bmad/` existe en la raíz del monorepo
-- O setea `BMAD_VENDOR_PATH` a la ruta correcta
-
-**Error de DB:**
-- El archivo SQLite se crea automáticamente
-- Para Postgres, setea `BMAD_DB_URL=postgresql://...`
 
 **Kanban vacío:**
 - Las stories deben guardarse como documentos en la DB
-- Creá documentos desde el diálogo con agentes en la TUI
+- Usá `bmad({ operation: "db", db: { action: "save", ... } })` desde la TUI
+
+**"Agent not found" en logs:**
+- Verificá que `vendor/bmad/` existe en tu proyecto
+- El MCP lo copia automáticamente al iniciar. Si no, copialo manualmente desde el monorepo
+
+**Error de DB:**
+- El archivo SQLite se crea automáticamente
+- Para Postgres, usá `BMAD_DB_URL=postgresql://...`
+- MCP y Web deben apuntar a la misma DB
