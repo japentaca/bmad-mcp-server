@@ -41,11 +41,6 @@ import { load as parseYaml } from 'js-yaml';
 import { XMLParser } from 'fast-xml-parser';
 import { parse as parseCsv } from 'csv-parse/sync';
 import { GitSourceResolver } from '../utils/git-source-resolver.js';
-import {
-  isBmadMethodSource,
-  scanBmadMethodSource,
-  type BmadSourceAdapterResult,
-} from './bmad-source-adapter.js';
 import type { Workflow } from '../types/index.js';
 
 /**
@@ -1568,46 +1563,5 @@ export class ResourceLoaderGit {
    */
   getResolvedGitPaths(): Map<string, string> {
     return new Map(this.resolvedGitPaths);
-  }
-
-  /**
-   * Scan all sources (git remotes + user + package) for bmad-method source format
-   * and extract agents and workflows.
-   */
-  async scanBmadMethodContent(): Promise<BmadSourceAdapterResult> {
-    const result: BmadSourceAdapterResult = { agents: [], workflows: [] };
-
-    const dirsToCheck: string[] = [];
-
-    // Check git remotes
-    for (const localPath of this.resolvedGitPaths.values()) {
-      dirsToCheck.push(localPath);
-    }
-
-    // Check user directory
-    dirsToCheck.push(this.paths.userBmad);
-
-    // Check package bundle
-    if (existsSync(this.paths.packageBmad)) {
-      dirsToCheck.push(this.paths.packageBmad);
-    }
-
-    for (const dir of dirsToCheck) {
-      if (isBmadMethodSource(dir)) {
-        const partial = scanBmadMethodSource(dir);
-        for (const agent of partial.agents) {
-          if (!result.agents.find((a) => a.name === agent.name && a.module === agent.module)) {
-            result.agents.push(agent);
-          }
-        }
-        for (const wf of partial.workflows) {
-          if (!result.workflows.find((w) => w.name === wf.name && w.module === wf.module)) {
-            result.workflows.push(wf);
-          }
-        }
-      }
-    }
-
-    return result;
   }
 }

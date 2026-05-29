@@ -134,25 +134,6 @@ export class BMADEngine {
     // Load all workflows with metadata from filesystem sources
     this.workflows = await this.loader.listWorkflowsWithMetadata();
 
-    // Scan bmad-method source format for additional agents and workflows
-    const bmadSource = await this.loader.scanBmadMethodContent();
-
-    for (const agent of bmadSource.agents) {
-      if (!this.agentMetadata.find(
-        (a) => a.name === agent.name && a.module === agent.module,
-      )) {
-        this.agentMetadata.push(agent);
-      }
-    }
-
-    for (const wf of bmadSource.workflows) {
-      if (!this.workflows.find(
-        (w) => w.name === wf.name && w.module === wf.module,
-      )) {
-        this.workflows.push(wf);
-      }
-    }
-
     // Pre-build resource list
     this.cachedResources = [];
     const allFiles = await this.loader.listAllFiles();
